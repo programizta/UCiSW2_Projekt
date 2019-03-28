@@ -72,13 +72,24 @@ begin
 	
 	counter_mod8	: process(clk)
 	begin
-		if rising_edge(clk) and CE = '1' then
+--		if rising_edge(clk) and CE = '1' then
+--			if Rst = '1' then
+--				mod8 <= "0001";
+--			elsif mod8 = "1000" then
+--				mod8 <= "0001";
+--			else
+--				mod8 <= mod8 + 1;
+--			end if;
+--		end if;
+      if rising_edge(clk) then
 			if Rst = '1' then
-				mod8 <= "0001";
-			elsif mod8 = "1000" then
-				mod8 <= "0001";
+				mod8 <= "0000";
 			else
-				mod8 <= mod8 + 1;
+            if mod8 = "1000" then
+               mod8 <= "0000";
+            else
+               mod8 <= mod8 + 1;
+            end if;
 			end if;
 		end if;
 	end process counter_mod8;
