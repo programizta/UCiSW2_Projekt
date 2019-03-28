@@ -32,19 +32,19 @@ use IEEE.STD_LOGIC_1164.ALL;
 entity sync_pattern_shift_register is
 	Port( clk 		:	in std_logic;
 			data_in	:	in std_logic;
-			CE			:	in std_logic;
+			CE			:	in std_logic; -- ?
 			Rst		:	in std_logic;
-			mod5		:	in std_logic_vector(2 downto 0);
-			mod8		:	in std_logic_vector(3 downto 0);
-			Q			:	out std_logic_vector(7 downto 0);
 			y			:	out std_logic);	
 end sync_pattern_shift_register;
 
 architecture Behavioral of sync_pattern_shift_register is
 	type state_type is (idle, active, decision, ledon);
 	signal state, next_state : state_type;
-	signal qs	:	std_logic_vector (7 downto 0);
+	signal qs :	std_logic_vector (7 downto 0);
 	signal most_significant_bit : std_logic := '1';
+   signal mod5		: std_logic_vector(2 downto 0);
+	signal mod8		: std_logic_vector(3 downto 0);
+	signal Q			: std_logic_vector(7 downto 0);
 
 begin
 	Q <= qs;
@@ -57,13 +57,15 @@ begin
 	
 	counter_mod5	: process(clk)
 	begin
-		if rising_edge(clk) and CE = '1' then
-			if Rst = '1' then
-				mod5 <= "000";
-			elsif mod5 = "100" then
+		if rising_edge(clk) then
+			if state = idle then
 				mod5 <= "000";
 			else
-				mod5 <= mod5 + 1;
+            if mod5 = "100" then
+               mod5 <= "000";
+            else
+               mod5 <= mod5 + 1;
+            end if;
 			end if;
 		end if;
 	end process counter_mod5;
@@ -81,23 +83,57 @@ begin
 		end if;
 	end process counter_mod8;
 	
+   change_state : process( Clk )
+   begin
+      if rising_edge( Clk ) then
+         if Reset = '1' then
+            state <= A;
+         else
+            state <= next_state;
+         end if;
+      end if;
+   end process change_state;
+   
 	reader_inner_state_switch	: process(state, Do_Rdy)
 		begin
-			if Q(7) = '1' and most_significant_bit = '1' then
-				next_state <= idle;
-			elsif Q(7) = '0' and most_significant_bit = '1' then
-				next_state <= active;
-			elsif Q(7) = '1' and most_significant_bit = '0' then
-				next_state <= active;
-			elsif Q(7) = '0' and most_significant_bit = '0' then
-				next_state <= decision;
-			elsif Q = "01010100" and mod8 = "1000" then
-				next_state <= ledon;
-			else next_state <= state;
-			end if;
-			most_significant_bit <= Q(7);
+
+         most_significant_bit <= Q(7);
+         next_state <= state;
+         
+         case state is
+            when idle =>
+               if most_significant_bit = '0' then
+                  next_state <= active;
+               end if;
+            when active =>
+               if mod8 = 8 then
+                  next_state <= decision;
+               end if;
+            when decision =>
+               if Q = "01010100" then
+                  next_state <= ledon;
+               else 
+                  next_state <= idle;
+               end if;
+             when ledon =>
+               next_state <= null;
+         end case;
+         
+--			if Q(7) = '1' and most_significant_bit = '1' then
+--				next_state <= idle;
+--			elsif Q(7) = '0' and most_significant_bit = '1' then
+--				next_state <= active;
+--			elsif Q(7) = '1' and most_significant_bit = '0' then
+--				next_state <= active;
+--			elsif Q(7) = '0' and most_significant_bit = '0' then
+--				next_state <= decision;
+--			elsif Q = "01010100" and mod8 = "1000" then
+--				next_state <= ledon;
+--			else next_state <= state;
+--			end if;
+--			most_significant_bit <= Q(7);
 		end process reader_inner_state_switch;
-		
+      		
 	if_ledon	:	process(state)
 	begin
 		if state = ledon then
